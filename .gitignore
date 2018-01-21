@@ -1,3 +1,6 @@
 .dropbox-api
 brewdog-efp5.csv
 brewdog-efp5.json
+*.pyc
+.coverage
+htmlcov
