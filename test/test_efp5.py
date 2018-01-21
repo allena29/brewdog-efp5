@@ -11,6 +11,8 @@ class TestEFP(unittest.TestCase):
 
         self.INVESTORS_AND_JAMES_IS_MASSIVELY_HAPPY = '9999999'
         self.RAISED_AND_JAMES_IS_MASSIVELY_HAPPY = '49,999,99.99'
+        self.INVESTORS_AFTER_SMASHING_THE_TARGET = '22422'
+        self.RAISED_AFTER_SMASHING_THE_TARGET = '10,427,295.00'
 
         self.htmldoc = """<html>
         <head>
@@ -77,10 +79,45 @@ class TestEFP(unittest.TestCase):
         self.assertEqual(efp5_json[0][2], self.RAISED_AND_JAMES_IS_MASSIVELY_HAPPY)
         self.assertEqual(efp5_json[0][3], self.INVESTORS_AND_JAMES_IS_MASSIVELY_HAPPY)
 
+    @patch('os.path.exists')
+    @patch('__builtin__.open')
+    @patch('sys.stderr')
+    def test_write_locaal_data_with_existing_data(self, sysStdErrMock, openMock, pathexistsMock):
+        # Setup
+        pathexistsMock.side_effect = [
+            True
+        ]
+
+        openMock.side_effect = [
+            # for the read
+            fakeFile(type='json'),
+            # for the write
+            fakeFile()
+        ]
+
+        # Action
+        efp5_json = self.subject._write_local_data(self.RAISED_AND_JAMES_IS_MASSIVELY_HAPPY,
+                                                   self.INVESTORS_AND_JAMES_IS_MASSIVELY_HAPPY)
+
+        # assert
+        self.assertEqual(len(efp5_json), 2)
+        self.assertEqual(len(efp5_json[0]), 4)
+        self.assertEqual(efp5_json[0][2], self.RAISED_AFTER_SMASHING_THE_TARGET)
+        self.assertEqual(efp5_json[0][3], self.INVESTORS_AFTER_SMASHING_THE_TARGET)
+        self.assertTrue(efp5_json[1][0] > time.time() - 1)
+        self.assertEqual(efp5_json[1][2], self.RAISED_AND_JAMES_IS_MASSIVELY_HAPPY)
+        self.assertEqual(efp5_json[1][3], self.INVESTORS_AND_JAMES_IS_MASSIVELY_HAPPY)
+
 
 class fakeFile:
+    def __init__(self, type='string'):
+        self.type = type
+
     def read(self):
-        return "thisis a\nstring"
+        if self.type == 'json':
+            return """[ [12345678.00, "Monday 1st January", "10,427,295.00", "22422"] ]"""
+        else:
+            return "thisis a\nstring"
 
     def write(self, x=None):
         pass
