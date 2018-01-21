@@ -54,7 +54,7 @@ class efp5:
         efp5_json.append([time.time(), time.ctime(), raised, investors])
 
         efp5_file = open('brewdog-efp5.json', 'w')
-        efp5_file.write(json.dumps(efp5_json))
+        efp5_file.write(json.dumps(efp5_json, indent=4))
         efp5_file.close()
 
         return efp5_json
