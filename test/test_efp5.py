@@ -6,39 +6,50 @@ from mock import patch, Mock, call, ANY
 
 class TestEFP(unittest.TestCase):
 
+    INVESTORS_AND_JAMES_IS_MASSIVELY_HAPPY = '9999999'
+    RAISED_AND_JAMES_IS_MASSIVELY_HAPPY = '49,999,99.99'
+    INVESTORS_AFTER_SMASHING_THE_TARGET = '22422'
+    RAISED_AFTER_SMASHING_THE_TARGET = '10,427,295.00'
+    TOTAL_RAISED = '99,999,99.99'
+    TOTAL_INVESTORS = '99999999'
+
+    EXPECTED_EXTRACTED_DATA = (RAISED_AND_JAMES_IS_MASSIVELY_HAPPY,
+                               INVESTORS_AND_JAMES_IS_MASSIVELY_HAPPY,
+                               TOTAL_RAISED,
+                               TOTAL_INVESTORS)
+
+    SAMPLE_ENTRY_0 = [123.4324, "Sat 20th", "11,199,999.99", "24,999", "91,199,999.99", "99,998"]
+    SAMPLE_ENTRY_1 = [125.4324, "Sun 21st", "12,200,000.00", "25,000", "92,200,000.00", "99,999"]
+
+    HTMLDOC = """<html>
+    <head>
+    </head>
+    <body>
+
+    <span>Raised</span>
+    <h3>\xc2\xa349,999,99.99</h3>
+    <span class="alt">\xc2\xa399,999,99.99</span>
+    </span>
+
+    <span>Investors</span>
+    <h3>9999999</h3>
+    <span class="alt">99999999</span>
+    </span>
+
+    </body>
+    </html>"""
+
     def setUp(self):
         self.subject = efp5.efp5()
-
-        self.INVESTORS_AND_JAMES_IS_MASSIVELY_HAPPY = '9999999'
-        self.RAISED_AND_JAMES_IS_MASSIVELY_HAPPY = '49,999,99.99'
-        self.INVESTORS_AFTER_SMASHING_THE_TARGET = '22422'
-        self.RAISED_AFTER_SMASHING_THE_TARGET = '10,427,295.00'
-
-        self.htmldoc = """<html>
-        <head>
-        </head>
-        <body>
-
-        <span>Raised</span>
-        <h3>\xc2\xa349,999,99.99</h3>
-        </span>
-
-        <span>Investors</span>
-        <h3>9999999</h3>
-        </span>
-
-        </body>
-        </html>"""
-        self.htmldoc = self.htmldoc.split()
+        self.htmldoc = self.HTMLDOC.split()
 
     @patch('sys.stderr')
     def test_extract_data(self, sysStdErrMock):
         # Action
-        (amount, investors) = self.subject._extract_data(self.htmldoc)
+        return_value = self.subject._extract_data(self.htmldoc)
 
         # Assert
-        self.assertEqual(amount, self.RAISED_AND_JAMES_IS_MASSIVELY_HAPPY)
-        self.assertEqual(investors, self.INVESTORS_AND_JAMES_IS_MASSIVELY_HAPPY)
+        self.assertEqual(return_value, self.EXPECTED_EXTRACTED_DATA)
 
     @patch('urllib.urlopen')
     @patch('sys.stderr')
@@ -70,7 +81,9 @@ class TestEFP(unittest.TestCase):
 
         # Action
         efp5_json = self.subject._write_local_data(self.RAISED_AND_JAMES_IS_MASSIVELY_HAPPY,
-                                                   self.INVESTORS_AND_JAMES_IS_MASSIVELY_HAPPY)
+                                                   self.INVESTORS_AND_JAMES_IS_MASSIVELY_HAPPY,
+                                                   self.TOTAL_RAISED,
+                                                   self.TOTAL_INVESTORS)
 
         # assert
         self.assertEqual(len(efp5_json), 1)
@@ -78,6 +91,8 @@ class TestEFP(unittest.TestCase):
         self.assertTrue(efp5_json[0][0] > time.time() - 1)
         self.assertEqual(efp5_json[0][2], self.RAISED_AND_JAMES_IS_MASSIVELY_HAPPY)
         self.assertEqual(efp5_json[0][3], self.INVESTORS_AND_JAMES_IS_MASSIVELY_HAPPY)
+        self.assertEqual(efp5_json[0][4], self.TOTAL_RAISED)
+        self.assertEqual(efp5_json[0][5], self.TOTAL_INVESTORS)
 
     @patch('os.path.exists')
     @patch('__builtin__.open')
@@ -97,16 +112,22 @@ class TestEFP(unittest.TestCase):
 
         # Action
         efp5_json = self.subject._write_local_data(self.RAISED_AND_JAMES_IS_MASSIVELY_HAPPY,
-                                                   self.INVESTORS_AND_JAMES_IS_MASSIVELY_HAPPY)
+                                                   self.INVESTORS_AND_JAMES_IS_MASSIVELY_HAPPY,
+                                                   self.TOTAL_RAISED,
+                                                   self.TOTAL_INVESTORS)
 
         # assert
         self.assertEqual(len(efp5_json), 2)
         self.assertEqual(len(efp5_json[0]), 4)
         self.assertEqual(efp5_json[0][2], self.RAISED_AFTER_SMASHING_THE_TARGET)
         self.assertEqual(efp5_json[0][3], self.INVESTORS_AFTER_SMASHING_THE_TARGET)
+        self.assertEqual(efp5_json[0][4], self.TOTAL_RAISED)
+        self.assertEqual(efp5_json[0][5], self.TOTAL_INVESTORS)
         self.assertTrue(efp5_json[1][0] > time.time() - 1)
         self.assertEqual(efp5_json[1][2], self.RAISED_AND_JAMES_IS_MASSIVELY_HAPPY)
         self.assertEqual(efp5_json[1][3], self.INVESTORS_AND_JAMES_IS_MASSIVELY_HAPPY)
+        self.assertEqual(efp5_json[0][4], self.TOTAL_RAISED)
+        self.assertEqual(efp5_json[0][5], self.TOTAL_INVESTORS)
 
     @patch('os.path.exists')
     def test_connect_to_dropbox_errors_if_no_token(self, pathExistsMock):
@@ -225,27 +246,26 @@ class TestEFP(unittest.TestCase):
         # Action
         self.subject._convert_json_to_csv(
             [
-                [123.4324, "Sat 20th", "11,199,999.99", "24,999"],
-                [125.4324, "Sun 21st", "12,200,000.00", "25,000"]
+                self.SAMPLE_ENTRY_0,
+                self.SAMPLE_ENTRY_1,
             ])
 
         # Assert
         self.assertEqual(self.subject._write_csv_entry.call_count, 1)
         openMock.assert_called_once_with('brewdog-efp5.csv', 'a')
         self.subject._write_csv_entry.assert_has_calls([
-            call(ANY, [125.4324, "Sun 21st", "12,200,000.00", "25,000"])
+            self.SAMPLE_ENTRY_1,
         ])
 
     def test_write_csv_entry(self):
         # Setup
         fileHandle = Mock()
-        entry = [125.4324, "Sun 21st", "12,200,000.00", "25,000"]
 
         # Action
-        self.subject._write_csv_entry(fileHandle, entry)
+        self.subject._write_csv_entry(fileHandle, self.SAMPLE_ENTRY_1)
 
         # Assert
-        fileHandle.write.assert_called_once_with('125.4324,Sun 21st,12200000.00,25000\r\n')
+        fileHandle.write.assert_called_once_with('125.4324,Sun 21st,12200000.00,25000,9220000000,99999\r\n')
 
     def test_everything_together(self):
         # Setup
