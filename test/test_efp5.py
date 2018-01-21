@@ -50,6 +50,14 @@ class TestEFP(unittest.TestCase):
 
         # Assert
         self.assertEqual(return_value, self.EXPECTED_EXTRACTED_DATA)
+        sysStdErrMock.write.assert_has_calls([
+            call('Extracting stats...'),
+            call('EFP5: %s from %s investors TOTAL: %s from %s investors\n' % 
+                                  (self.RAISED_AND_JAMES_IS_MASSIVELY_HAPPY,
+                                   self.INVESTORS_AND_JAMES_IS_MASSIVELY_HAPPY,
+                                   self.TOTAL_RAISED,
+                                   self.TOTAL_INVESTORS))
+        ])
 
     @patch('urllib.urlopen')
     @patch('sys.stderr')
@@ -87,7 +95,7 @@ class TestEFP(unittest.TestCase):
 
         # assert
         self.assertEqual(len(efp5_json), 1)
-        self.assertEqual(len(efp5_json[0]), 4)
+        self.assertEqual(len(efp5_json[0]), 6)
         self.assertTrue(efp5_json[0][0] > time.time() - 1)
         self.assertEqual(efp5_json[0][2], self.RAISED_AND_JAMES_IS_MASSIVELY_HAPPY)
         self.assertEqual(efp5_json[0][3], self.INVESTORS_AND_JAMES_IS_MASSIVELY_HAPPY)
@@ -118,7 +126,7 @@ class TestEFP(unittest.TestCase):
 
         # assert
         self.assertEqual(len(efp5_json), 2)
-        self.assertEqual(len(efp5_json[0]), 4)
+        self.assertEqual(len(efp5_json[0]), 6)
         self.assertEqual(efp5_json[0][2], self.RAISED_AFTER_SMASHING_THE_TARGET)
         self.assertEqual(efp5_json[0][3], self.INVESTORS_AFTER_SMASHING_THE_TARGET)
         self.assertEqual(efp5_json[0][4], self.TOTAL_RAISED)
@@ -254,7 +262,7 @@ class TestEFP(unittest.TestCase):
         self.assertEqual(self.subject._write_csv_entry.call_count, 1)
         openMock.assert_called_once_with('brewdog-efp5.csv', 'a')
         self.subject._write_csv_entry.assert_has_calls([
-            self.SAMPLE_ENTRY_1,
+            call(ANY, self.SAMPLE_ENTRY_1)
         ])
 
     def test_write_csv_entry(self):
@@ -265,7 +273,7 @@ class TestEFP(unittest.TestCase):
         self.subject._write_csv_entry(fileHandle, self.SAMPLE_ENTRY_1)
 
         # Assert
-        fileHandle.write.assert_called_once_with('125.4324,Sun 21st,12200000.00,25000,9220000000,99999\r\n')
+        fileHandle.write.assert_called_once_with('125.4324,Sun 21st,12200000.00,25000,92200000.00,99999\r\n')
 
     def test_everything_together(self):
         # Setup
@@ -300,7 +308,7 @@ class fakeFileStub:
 
     def read(self):
         if self.type == 'json':
-            return """[ [12345678.00, "Monday 1st January", "10,427,295.00", "22422"] ]"""
+            return """[ [12345678.00, "Monday 1st January", "10,427,295.00", "22422", "99,999,99.99", "99999999" ] ]"""
         else:
             return "thisis a\nstring"
 

@@ -28,14 +28,17 @@ class efp5:
 
     def _extract_data(self, body):
         sys.stderr.write('Extracting stats...')
-        rx_raised = re.compile('^<h3>\\xc2\\xa3([0-9,\.]+)</h3>$')
-        rx_investors = re.compile('<h3>([0-9,]+)<\/h3>')
-        efp5_raised = rx_raised.sub('\g<1>', body[body.index('<span>Raised</span>') + 1])
-        efp5_investors = rx_investors.sub('\g<1>', body[body.index('<span>Investors</span>') + 1])
+        rx_efp5 = re.compile('^<h3>(\\xc2\\xa3)?([0-9,\.]+)</h3>$')
+        rx_total = re.compile('^class="alt">(\\xc2\\xa3)?([0-9,\.]+)</span>$')
+        efp5_raised = rx_efp5.sub('\g<2>', body[body.index('<span>Raised</span>') + 1])
+        efp5_investors = rx_efp5.sub('\g<2>', body[body.index('<span>Investors</span>') + 1])
+        total_raised = rx_total.sub('\g<2>', body[body.index('<span>Raised</span>') + 3])
+        total_investors = rx_total.sub('\g<2>', body[body.index('<span>Investors</span>') + 3])
 
-        sys.stderr.write('%s from %s investors\n' % (efp5_raised, efp5_investors))
+        sys.stderr.write('EFP5: %s from %s investors TOTAL: %s from %s investors\n' 
+                         % (efp5_raised, efp5_investors, total_raised, total_investors))
 
-        return (efp5_raised, efp5_investors)
+        return (efp5_raised, efp5_investors, total_raised, total_investors)
 
     def _download_data(self):
         sys.stderr.write('Fetching stats from %s\n' % (self.URL))
@@ -43,7 +46,7 @@ class efp5:
         body = req.read().split()
         return body
 
-    def _write_local_data(self, raised, investors):
+    def _write_local_data(self, raised, investors, total_raised, total_investors):
         sys.stderr.write('Saving data to disk\n')
         if os.path.exists('brewdog-efp5.json'):
             efp5_file = open('brewdog-efp5.json')
@@ -52,7 +55,7 @@ class efp5:
         else:
             efp5_json = []
 
-        efp5_json.append([time.time(), time.ctime(), raised, investors])
+        efp5_json.append([time.time(), time.ctime(), raised, investors, total_raised, total_investors])
 
         efp5_file = open('brewdog-efp5.json', 'w')
         efp5_file.write(json.dumps(efp5_json, indent=4))
@@ -73,9 +76,11 @@ class efp5:
             self._write_csv_entry(efp5_csv, entry)
 
     def _write_csv_entry(self, fileHandle, entry):
-        fileHandle.write('%s,%s,%s,%s\r\n' % (entry[0], entry[1],
+        fileHandle.write('%s,%s,%s,%s,%s,%s\r\n' % (entry[0], entry[1],
                                               entry[2].replace(',', ''),
-                                              entry[3].replace(',', '')))
+                                              entry[3].replace(',', ''),
+                                              entry[4].replace(',', ''),
+                                              entry[5].replace(',', '')))
 
     def _connect_to_dropbox(self):
         if not os.path.exists('.dropbox-api'):
@@ -110,8 +115,8 @@ class efp5:
 
     def check_progress_write_data_and_upload_to_dropbox(self):
         data = self._download_data()
-        (efp5_raised, efp5_investors) = self._extract_data(data)
-        efp5_json = self._write_local_data(efp5_raised, efp5_investors)
+        (efp5_raised, efp5_investors, total_raised, total_investors) = self._extract_data(data)
+        efp5_json = self._write_local_data(efp5_raised, efp5_investors, total_raised, total_investors)
         self._convert_json_to_csv(efp5_json)
         dbx = self._connect_to_dropbox()
         self._upload_file_to_dropbox(dbx, 'brewdog-efp5.json')
