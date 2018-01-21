@@ -21,13 +21,14 @@ The stats are then uploaded to dropbox.
 class efp5:
 
     URL = 'https://www.brewdog.com/equityforpunks'
+    DROPBOX_OVERWRITE = WriteMode('overwrite')
 
     def __init__(self):
         pass
 
     def _extract_data(self, body):
         sys.stderr.write('Extracting stats...')
-        rx_raised = re.compile('^<h3>\\xc2\\xa3([0-9,\.]+)<\/h3>$')
+        rx_raised = re.compile('^<h3>\\xc2\\xa3([0-9,\.]+)</h3>$')
         rx_investors = re.compile('<h3>([0-9,]+)<\/h3>')
         efp5_raised = rx_raised.sub('\g<1>', body[body.index('<span>Raised</span>') + 1])
         efp5_investors = rx_investors.sub('\g<1>', body[body.index('<span>Investors</span>') + 1])
@@ -64,16 +65,17 @@ class efp5:
         if not os.path.exists('brewdog-efp5.csv'):
             efp5_csv = open('brewdog-efp5.csv', 'w')
             for entry in efp5_json:
-                efp5_csv.write('%s,%s,%s,%s\r\n' % (entry[0], entry[1],
-                                                    entry[2].replace(',', ''),
-                                                    entry[3].replace(',', '')))
+                self._write_csv_entry(efp5_csv, entry)
             efp5_csv.close()
         else:
             efp5_csv = open('brewdog-efp5.csv', 'a')
             entry = efp5_json[-1]
-            efp5_csv.write('%s,%s,%s,%s\r\n' % (entry[0], entry[1],
-                                                entry[2].replace(',', ''),
-                                                entry[3].replace(',', '')))
+            self._write_csv_entry(efp5_csv, entry)
+
+    def _write_csv_entry(self, fileHandle, entry):
+        fileHandle.write('%s,%s,%s,%s\r\n' % (entry[0], entry[1],
+                                              entry[2].replace(',', ''),
+                                              entry[3].replace(',', '')))
 
     def _connect_to_dropbox(self):
         if not os.path.exists('.dropbox-api'):
@@ -83,13 +85,20 @@ class efp5:
         dropbox_api_file.close()
 
         dbx = dropbox.Dropbox(dropbox_token)
-        dbx.users_get_current_account()
+        self._check_dropbox_connection(dbx)
 
         return dbx
 
+    def _check_dropbox_connection(self, dbx):
+        try:
+            dbx.users_get_current_account()
+            return True
+        except Exception, e:
+            raise RuntimeError("Unable to connect to drop-box\n%s" % (e.message))
+
     def _upload_file_to_dropbox(self, dbx, file_to_upload,
-                               dropbox_folder='/Apps/myapps2',
-                               dropbox_subfolder='brewdog-efp5'):
+                                dropbox_folder='/Apps/myapps2',
+                                dropbox_subfolder='brewdog-efp5'):
         sys.stderr.write('Uploading file to dropbox %s -> %s/%s/%s\n' % (file_to_upload,
                                                                          dropbox_folder,
                                                                          dropbox_subfolder,
@@ -97,7 +106,7 @@ class efp5:
         with open(file_to_upload, 'r') as file_obj:
             dbx.files_upload(file_obj.read(),
                              dropbox_folder + '/' + dropbox_subfolder + '/' + file_to_upload,
-                             mode=WriteMode('overwrite'))
+                             mode=self.DROPBOX_OVERWRITE)
 
     def check_progress_write_data_and_upload_to_dropbox(self):
         data = self._download_data()
