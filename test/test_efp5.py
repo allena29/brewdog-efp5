@@ -1,5 +1,6 @@
 import unittest
 import efp5
+import time
 from mock import patch
 
 
@@ -40,7 +41,7 @@ class TestEFP(unittest.TestCase):
     @patch('urllib.urlopen')
     @patch('sys.stderr')
     def test_download_data(self, sysStdErrMock, urllibMock):
-
+        # Setup
         urllibMock.side_effect = [
             fakeFile()
         ]
@@ -52,7 +53,37 @@ class TestEFP(unittest.TestCase):
         urllibMock.assert_called_once_with(self.subject.URL)
         self.assertEqual(body, ['thisis', 'a', 'string'])
 
+    @patch('os.path.exists')
+    @patch('__builtin__.open')
+    @patch('sys.stderr')
+    def test_write_locaal_data_for_first_time(self, sysStdErrMock, openMock, pathexistsMock):
+        # Setup
+        pathexistsMock.side_effect = [
+            False
+        ]
+
+        openMock.side_effect = [
+            fakeFile()
+        ]
+
+        # Action
+        efp5_json = self.subject._write_local_data(self.RAISED_AND_JAMES_IS_MASSIVELY_HAPPY,
+                                                   self.INVESTORS_AND_JAMES_IS_MASSIVELY_HAPPY)
+
+        # assert
+        self.assertEqual(len(efp5_json), 1)
+        self.assertEqual(len(efp5_json[0]), 4)
+        self.assertTrue(efp5_json[0][0] > time.time() - 1)
+        self.assertEqual(efp5_json[0][2], self.RAISED_AND_JAMES_IS_MASSIVELY_HAPPY)
+        self.assertEqual(efp5_json[0][3], self.INVESTORS_AND_JAMES_IS_MASSIVELY_HAPPY)
+
 
 class fakeFile:
     def read(self):
         return "thisis a\nstring"
+
+    def write(self, x=None):
+        pass
+
+    def close(self):
+        pass
